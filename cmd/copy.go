@@ -1338,7 +1338,9 @@ func init() {
 	cpCmd.PersistentFlags().MarkHidden("list-of-files")
 	cpCmd.PersistentFlags().MarkHidden("s2s-get-properties-in-backend")
 
-	// Hide the flush-threshold flag since it is implemented only for CI.
+	// Hide the following flags as they are only implemented for CI purposes.
 	cpCmd.PersistentFlags().Uint32Var(&ste.ADLSFlushThreshold, "flush-threshold", 7500, "Adjust the number of blocks to flush at once on ADLS gen 2")
 	cpCmd.PersistentFlags().MarkHidden("flush-threshold")
+	cpCmd.PersistentFlags().BoolVar(&ste.SupplyInvalidSrcTimeCheck, "supply-invalid-lmt", false, "Have SIP hand off an invalid LMT to fail a transfer intentionally")
+	cpCmd.PersistentFlags().MarkHidden("supply-invalid-lmt")
 }
