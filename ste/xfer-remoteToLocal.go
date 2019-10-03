@@ -261,6 +261,12 @@ func epilogueWithCleanupDownload(jptm IJobPartTransferMgr, dl downloader, active
 
 		// wait until all received chunks are flushed out
 		md5OfFileAsWritten, flushError := cw.Flush(jptm.Context())
+
+		if SupplyInvalidMD5 && (jptm.MD5ValidationOption() == common.EHashValidationOption.FailIfDifferent() || jptm.MD5ValidationOption() == common.EHashValidationOption.FailIfDifferentOrMissing()) {
+			// Increment and shift first byte of MD5 to ensure damage has been done
+			md5OfFileAsWritten[0] = (md5OfFileAsWritten[0] + 1) >> 1
+		}
+
 		closeErr := activeDstFile.Close() // always try to close if, even if flush failed
 		jptm.FileCountLimiter().Remove(1) // always release it from our count, no matter what happened
 		if flushError != nil {
