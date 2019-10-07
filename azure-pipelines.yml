@@ -19,6 +19,7 @@ jobs:
         inputs:
           version: '1.12'
       - script: |
+          # Do not produce a debug artifact, as that's generated during Test_On_Ubuntu
           GOARCH=amd64 GOOS=linux go build -o "$(Build.ArtifactStagingDirectory)/azcopy_linux_amd64"
           GOARCH=amd64 GOOS=linux go build -tags "se_integration" -o "$(Build.ArtifactStagingDirectory)/azcopy_linux_se_amd64"
           GOARCH=amd64 GOOS=windows go build -o "$(Build.ArtifactStagingDirectory)/azcopy_windows_amd64.exe"
@@ -74,8 +75,9 @@ jobs:
           # Race detection parameter, -race, removed, 1 Oct 2019, to bring down execution time
           # Also removed -cover, since we are not currently using the output of that from automated builds
           set -e
-          go test -timeout 40m -short -v ./cmd ./common ./ste ./azbfs "-check.v" 
-          GOARCH=amd64 GOOS=linux go build -o azcopy_linux_amd64
+          go test -timeout 40m -short -v ./cmd ./common ./ste ./azbfs "-check.v"
+          # Generate build with the debug tag to get fault induction and ADLS flush threshold features
+          GOARCH=amd64 GOOS=linux go build -tags debug -o azcopy_linux_amd64
         name: 'Run_unit_tests'
         env:
           ACCOUNT_NAME: $(ACCOUNT_NAME)
