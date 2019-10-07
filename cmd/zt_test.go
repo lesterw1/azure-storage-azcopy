@@ -73,6 +73,17 @@ const (
 	defaultBlobFSFileSizeInBytes = 1000
 )
 
+// if S3_TESTS_OFF is set at all, S3 tests are disabled.
+func isS3Disabled() bool {
+	return strings.ToLower(os.Getenv("S3_TESTS_OFF")) != ""
+}
+
+func skipIfS3Disabled(c *chk.C) {
+	if isS3Disabled() {
+		c.Skip("S3 testing is disabled for this unit test suite run.")
+	}
+}
+
 // This function generates an entity name by concatenating the passed prefix,
 // the name of the test requesting the entity name, and the minute, second, and nanoseconds of the call.
 // This should make it easy to associate the entities with their test, uniquely identify
@@ -391,6 +402,10 @@ type createS3ResOptions struct {
 }
 
 func createS3ClientWithMinio(o createS3ResOptions) (*minio.Client, error) {
+	if isS3Disabled() {
+		return nil, errors.New("s3 testing is disabled")
+	}
+
 	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
 	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -548,15 +563,6 @@ func getAlternateFSU() (azfile.ServiceURL, error) {
 	return azfile.NewServiceURL(*fsURL, pipeline), nil
 }
 
-func createNewShare(c *chk.C, fsu azfile.ServiceURL) (share azfile.ShareURL, name string) {
-	share, name = getShareURL(c, fsu)
-
-	cResp, err := share.Create(ctx, nil, 0)
-	c.Assert(err, chk.IsNil)
-	c.Assert(cResp.StatusCode(), chk.Equals, 201)
-	return share, name
-}
-
 func deleteShare(c *chk.C, share azfile.ShareURL) {
 	_, err := share.Delete(ctx, azfile.DeleteSnapshotsOptionInclude)
 	c.Assert(err, chk.IsNil)
@@ -707,19 +713,19 @@ func getAdlsServiceURLWithSAS(c *chk.C, credential azbfs.SharedKeyCredential) az
 	return azbfs.NewServiceURL(*fullURL, azbfs.NewPipeline(azbfs.NewAnonymousCredential(), azbfs.PipelineOptions{}))
 }
 
-// check.v1 style "StringIncludes" checker
+// check.v1 style "StringContains" checker
 
-type stringIncludesChecker struct {
+type stringContainsChecker struct {
 	*chk.CheckerInfo
 }
 
-var StringIncludes = &stringIncludesChecker{
-	&chk.CheckerInfo{Name: "StringIncludes", Params: []string{"obtained", "expected to find"}},
+var StringContains = &stringContainsChecker{
+	&chk.CheckerInfo{Name: "StringContains", Params: []string{"obtained", "expected to find"}},
 }
 
-func (checker *stringIncludesChecker) Check(params []interface{}, names []string) (result bool, error string) {
+func (checker *stringContainsChecker) Check(params []interface{}, names []string) (result bool, error string) {
 	if len(params) < 2 {
-		return false, "StringIncludes requires two parameters"
+		return false, "StringContains requires two parameters"
 	} // Ignore extra parameters
 
 	// Assert that params[0] and params[1] are strings

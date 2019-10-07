@@ -504,6 +504,8 @@ func (raw rawCopyCmdArgs) cookWithId(jobId common.JobID) (cookedCopyCmdArgs, err
 		}
 	case common.EFromTo.BlobBlob(),
 		common.EFromTo.FileBlob(),
+		common.EFromTo.FileFile(),
+		common.EFromTo.BlobFile(),
 		common.EFromTo.S3Blob():
 		if cooked.preserveLastModifiedTime {
 			return cooked, fmt.Errorf("preserve-last-modified-time is not supported while copying from service to service")
@@ -511,14 +513,12 @@ func (raw rawCopyCmdArgs) cookWithId(jobId common.JobID) (cookedCopyCmdArgs, err
 		if cooked.followSymlinks {
 			return cooked, fmt.Errorf("follow-symlinks flag is not supported while copying from service to service")
 		}
+		// blob type is not supported if destination is not blob
+		if cooked.blobType != common.EBlobType.Detect() && cooked.fromTo.To() != common.ELocation.Blob() {
+			return cooked, fmt.Errorf("blob-type is not supported for the scenario (%s)", cooked.fromTo.String())
+		}
 		// Disabling blob tier override, when copying block -> block blob or page -> page blob, blob tier will be kept,
 		// For s3 and file, only hot block blob tier is supported.
-		if cooked.fromTo == common.EFromTo.FileBlob() && cooked.blobType != common.EBlobType.Detect() {
-			return cooked, fmt.Errorf("blob-type is not supported while copying from file to blob")
-		}
-		if cooked.fromTo == common.EFromTo.S3Blob() && cooked.blobType != common.EBlobType.Detect() {
-			return cooked, fmt.Errorf("blob-type is not supported while copying from s3 to blob")
-		}
 		if cooked.blockBlobTier != common.EBlockBlobTier.None() ||
 			cooked.pageBlobTier != common.EPageBlobTier.None() {
 			return cooked, fmt.Errorf("blob-tier is not supported while copying from sevice to service")
@@ -906,6 +906,8 @@ func (cca *cookedCopyCmdArgs) processCopyJobPartOrders() (err error) {
 		common.EFromTo.BlobFSLocal(),
 		common.EFromTo.BlobBlob(),
 		common.EFromTo.FileBlob(),
+		common.EFromTo.FileFile(),
+		common.EFromTo.BlobFile(),
 		common.EFromTo.S3Blob(),
 		common.EFromTo.BenchmarkBlob(),
 		common.EFromTo.BenchmarkBlobFS(),
@@ -1326,6 +1328,8 @@ func init() {
 	cpCmd.PersistentFlags().BoolVar(&raw.preserveLastModifiedTime, "preserve-last-modified-time", false, "only available when destination is file system.")
 	cpCmd.PersistentFlags().BoolVar(&raw.putMd5, "put-md5", false, "create an MD5 hash of each file, and save the hash as the Content-MD5 property of the destination blob/file. (By default the hash is NOT created.) Only available when uploading.")
 	cpCmd.PersistentFlags().StringVar(&raw.md5ValidationOption, "check-md5", common.DefaultHashValidationOption.String(), "specifies how strictly MD5 hashes should be validated when downloading. Only available when downloading. Available options: NoCheck, LogOnly, FailIfDifferent, FailIfDifferentOrMissing.")
+	cpCmd.PersistentFlags().StringVar(&raw.includeFileAttributes, "include-attributes", "", "(Windows only) only include files whose attributes match the attribute list. Example: A;S;R")
+	cpCmd.PersistentFlags().StringVar(&raw.excludeFileAttributes, "exclude-attributes", "", "(Windows only) exclude files whose attributes match the attribute list. Example: A;S;R")
 
 	cpCmd.PersistentFlags().BoolVar(&raw.CheckLength, "check-length", true, "Check the length of a file on the destination after the transfer. If there is a mismatch between source and destination, fail the transfer.")
 	cpCmd.PersistentFlags().BoolVar(&raw.s2sPreserveProperties, "s2s-preserve-properties", true, "preserve full properties during service to service copy. "+

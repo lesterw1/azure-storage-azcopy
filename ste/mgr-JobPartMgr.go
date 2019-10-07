@@ -46,6 +46,7 @@ type IJobPartMgr interface {
 	SlicePool() common.ByteSlicePooler
 	CacheLimiter() common.CacheLimiter
 	FileCountLimiter() common.CacheLimiter
+	ExclusiveDestinationMap() *common.ExclusiveStringMap
 	ChunkStatusLogger() common.ChunkStatusLogger
 	common.ILogger
 	SourceProviderPipeline() pipeline.Pipeline
@@ -184,7 +185,7 @@ func NewBlobFSPipeline(c azbfs.Credential, o azbfs.PipelineOptions, r XferRetryO
 
 	f = append(f,
 		pipeline.MethodFactoryMarker(), // indicates at what stage in the pipeline the method factory is invoked
-		azbfs.NewRequestLogPolicyFactory(o.RequestLog),
+		NewRequestLogPolicyFactory(RequestLogOptions{LogWarningIfTryOverThreshold: o.RequestLog.LogWarningIfTryOverThreshold}),
 		newXferStatsPolicyFactory(statsAcc))
 
 	return pipeline.NewPipeline(f, pipeline.Options{HTTPSender: newAzcopyHTTPClientFactory(client), Log: o.Log})
@@ -204,7 +205,7 @@ func NewFilePipeline(c azfile.Credential, o azfile.PipelineOptions, r azfile.Ret
 		c,
 		pipeline.MethodFactoryMarker(), // indicates at what stage in the pipeline the method factory is invoked
 		NewVersionPolicyFactory(),
-		azfile.NewRequestLogPolicyFactory(o.RequestLog),
+		NewRequestLogPolicyFactory(RequestLogOptions{LogWarningIfTryOverThreshold: o.RequestLog.LogWarningIfTryOverThreshold}),
 		newXferStatsPolicyFactory(statsAcc),
 	}
 	return pipeline.NewPipeline(f, pipeline.Options{HTTPSender: newAzcopyHTTPClientFactory(client), Log: o.Log})
@@ -257,8 +258,9 @@ type jobPartMgr struct {
 
 	slicePool common.ByteSlicePooler
 
-	cacheLimiter     common.CacheLimiter
-	fileCountLimiter common.CacheLimiter
+	cacheLimiter            common.CacheLimiter
+	fileCountLimiter        common.CacheLimiter
+	exclusiveDestinationMap *common.ExclusiveStringMap
 
 	pipeline pipeline.Pipeline // ordered list of Factory objects and an object implementing the HTTPSender interface
 
@@ -559,6 +561,10 @@ func (jpm *jobPartMgr) CacheLimiter() common.CacheLimiter {
 
 func (jpm *jobPartMgr) FileCountLimiter() common.CacheLimiter {
 	return jpm.fileCountLimiter
+}
+
+func (jpm *jobPartMgr) ExclusiveDestinationMap() *common.ExclusiveStringMap {
+	return jpm.exclusiveDestinationMap
 }
 
 func (jpm *jobPartMgr) StartJobXfer(jptm IJobPartTransferMgr) {
