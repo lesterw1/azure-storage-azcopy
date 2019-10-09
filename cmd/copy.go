@@ -126,6 +126,9 @@ type rawCopyCmdArgs struct {
 	introduceMD5Fault  bool
 	introduceLMTFault  bool
 	introduceLenFault  bool
+  
+	// internal override to enforce strip-top-dir
+	internalOverrideStripTopDir bool
 }
 
 func (raw *rawCopyCmdArgs) parsePatterns(pattern string) (cookedPatterns []string) {
@@ -256,6 +259,10 @@ func (raw rawCopyCmdArgs) cookWithId(jobId common.JobID) (cookedCopyCmdArgs, err
 		if err != nil {
 			return cooked, err
 		}
+	}
+
+	if raw.internalOverrideStripTopDir {
+		cooked.stripTopDir = true
 	}
 
 	cooked.recursive = raw.recursive
@@ -396,6 +403,7 @@ func (raw rawCopyCmdArgs) cookWithId(jobId common.JobID) (cookedCopyCmdArgs, err
 	if err != nil {
 		return cooked, err
 	}
+	globalBlobFSMd5ValidationOption = cooked.md5ValidationOption // workaround, to avoid having to pass this all the way through the chain of methods in enumeration, just for one weird and (presumably) temporary workaround
 
 	cooked.CheckLength = raw.CheckLength
 	// length of devnull will be 0, thus this will always fail unless downloading an empty file
@@ -1301,8 +1309,8 @@ func init() {
 		"Support use of *. Files should be separated with ';'.")
 	cpCmd.PersistentFlags().StringVar(&raw.includePath, "include-path", "", "only include these paths when copying. "+
 		"Does not support using wildcards. Checks relative path prefix. ex. myFolder;myFolder/subDirName/file.pdf")
-	cpCmd.PersistentFlags().StringVar(&raw.excludePath, "exclude-path", "", "exclude these paths when copying. "+
-		"Does not support using wildcards. Checks relative path prefix. ex. myFolder;myFolder/subDirName/file.pdf")
+	cpCmd.PersistentFlags().StringVar(&raw.excludePath, "exclude-path", "", "exclude these paths when copying. "+ // Currently, only exclude-path is supported alongside account traversal.
+		"Does not support using wildcards. Checks relative path prefix. ex. myFolder;myFolder/subDirName/file.pdf. When used in combination with account traversal, paths do not include the container name.")
 	// This flag is implemented only for Storage Explorer.
 	cpCmd.PersistentFlags().StringVar(&raw.listOfFilesToCopy, "list-of-files", "", "defines the location of json which has the list of only files to be copied")
 	cpCmd.PersistentFlags().StringVar(&raw.exclude, "exclude-pattern", "", "exclude these files when copying. Support use of *.")
